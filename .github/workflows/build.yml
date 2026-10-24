@@ -1,0 +1,68 @@
+name: Build TrollStore IPA
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    # 作者用 Xcode 27 验证编译；若报 Xcode 版本问题，可改 xcode-27 / macos-15
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Install ldid
+        shell: bash
+        run: |
+          if ! command -v ldid >/dev/null 2>&1; then
+            curl -fL -o /tmp/ldid https://github.com/ProcursusTeam/ldid/releases/latest/download/ldid_macosx_arm64
+            chmod +x /tmp/ldid
+            echo "/tmp" >> "$GITHUB_PATH"
+          fi
+          ldid 2>&1 | head -2 || true
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build unsigned app
+        shell: bash
+        run: |
+          xcodebuild -project JevJarvis.xcodeproj \
+            -scheme JevJarvis \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Sign with ldid and package
+        shell: bash
+        run: |
+          set -e
+          APP=build/Build/Products/Release-iphoneos/JevJarvis.app
+          echo "== App dir =="
+          ls -la "$APP"
+          echo "== PlugIns dir =="
+          ls -la "$APP/PlugIns" || true
+          # 先签扩展（appex），再签主 App
+          ldid -S Keyboard/JevKeyboard.entitlements "$APP/PlugIns/JevKeyboard.appex/JevKeyboard"
+          ldid -S Broadcast/JevLive.entitlements "$APP/PlugIns/JevLive.appex/JevLive"
+          ldid -S App/JevJarvis.entitlements "$APP/JevJarvis"
+          # 打包 IPA
+          mkdir -p Payload
+          cp -r "$APP" Payload/
+          zip -qry JevJarvis.ipa Payload
+          ls -lh JevJarvis.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: JevJarvis-TrollStore
+          path: JevJarvis.ipa
