@@ -16,21 +16,15 @@ jobs:
         run: brew install xcodegen
 
       - name: Install ldid
-        shell: bash
         run: |
-          if ! command -v ldid >/dev/null 2>&1; then
-            curl -fL -o /tmp/ldid https://github.com/ProcursusTeam/ldid/releases/latest/download/ldid_macosx_arm64
-            chmod +x /tmp/ldid
-            echo "/tmp" >> "$GITHUB_PATH"
-          fi
-          ls -lh /tmp/ldid || true
-          ldid 2>&1 | head -1 || true
+          curl -fL -o ldid https://github.com/ProcursusTeam/ldid/releases/latest/download/ldid_macosx_arm64
+          chmod +x ldid
+          ls -lh ldid
 
       - name: Generate Xcode project
         run: xcodegen generate
 
       - name: Build unsigned app
-        shell: bash
         run: |
           xcodebuild -project JevJarvis.xcodeproj \
             -scheme JevJarvis \
@@ -44,25 +38,19 @@ jobs:
             build
 
       - name: Sign with ldid and package
-        shell: bash
         run: |
           set -e
           APP=build/Build/Products/Release-iphoneos/JevJarvis.app
           PRODUCTS=build/Build/Products/Release-iphoneos
-          echo "== Products root appex =="
-          file "$PRODUCTS/JevKeyboard.appex/JevKeyboard" "$PRODUCTS/JevLive.appex/JevLive" || true
-          # embed 步骤带 -remove-static-executable 会清空 PlugIns 里的 appex 二进制，
-          # 这里强制从 Products 根目录复制完整的 appex 重建 PlugIns
+          # embed 的 -remove-static-executable 会清空 PlugIns 里的 appex 二进制，从 Products 根目录重建
           rm -rf "$APP/PlugIns"
           mkdir -p "$APP/PlugIns"
           cp -R "$PRODUCTS/JevKeyboard.appex" "$APP/PlugIns/"
           cp -R "$PRODUCTS/JevLive.appex" "$APP/PlugIns/"
-          echo "== PlugIns rebuilt =="
-          file "$APP/PlugIns/JevKeyboard.appex/JevKeyboard" "$APP/PlugIns/JevLive.appex/JevLive"
-          # 先签扩展（appex），再签主 App
-          ldid -S Keyboard/JevKeyboard.entitlements "$APP/PlugIns/JevKeyboard.appex/JevKeyboard"
-          ldid -S Broadcast/JevLive.entitlements "$APP/PlugIns/JevLive.appex/JevLive"
-          ldid -S App/JevJarvis.entitlements "$APP/JevJarvis"
+          # 先签扩展，再签主 App（注意：-S 与 entitlements 路径必须连写，不能有空格）
+          ./ldid -SKeyboard/JevKeyboard.entitlements "$APP/PlugIns/JevKeyboard.appex/JevKeyboard"
+          ./ldid -SBroadcast/JevLive.entitlements "$APP/PlugIns/JevLive.appex/JevLive"
+          ./ldid -SApp/JevJarvis.entitlements "$APP/JevJarvis"
           # 打包 IPA
           mkdir -p Payload
           cp -r "$APP" Payload/
