@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    # 作者用 Xcode 27 验证编译；若报 Xcode 版本问题，可改 xcode-27 / macos-15
+    # 作者用 Xcode 27 验证编译；Xcode 26.6 亦可
     runs-on: macos-26
     steps:
       - name: Checkout
@@ -23,7 +23,8 @@ jobs:
             chmod +x /tmp/ldid
             echo "/tmp" >> "$GITHUB_PATH"
           fi
-          ldid 2>&1 | head -2 || true
+          ls -lh /tmp/ldid || true
+          ldid 2>&1 | head -1 || true
 
       - name: Generate Xcode project
         run: xcodegen generate
@@ -47,10 +48,17 @@ jobs:
         run: |
           set -e
           APP=build/Build/Products/Release-iphoneos/JevJarvis.app
-          echo "== App dir =="
-          ls -la "$APP"
-          echo "== PlugIns dir =="
-          ls -la "$APP/PlugIns" || true
+          PRODUCTS=build/Build/Products/Release-iphoneos
+          echo "== Products root appex =="
+          file "$PRODUCTS/JevKeyboard.appex/JevKeyboard" "$PRODUCTS/JevLive.appex/JevLive" || true
+          # embed 步骤带 -remove-static-executable 会清空 PlugIns 里的 appex 二进制，
+          # 这里强制从 Products 根目录复制完整的 appex 重建 PlugIns
+          rm -rf "$APP/PlugIns"
+          mkdir -p "$APP/PlugIns"
+          cp -R "$PRODUCTS/JevKeyboard.appex" "$APP/PlugIns/"
+          cp -R "$PRODUCTS/JevLive.appex" "$APP/PlugIns/"
+          echo "== PlugIns rebuilt =="
+          file "$APP/PlugIns/JevKeyboard.appex/JevKeyboard" "$APP/PlugIns/JevLive.appex/JevLive"
           # 先签扩展（appex），再签主 App
           ldid -S Keyboard/JevKeyboard.entitlements "$APP/PlugIns/JevKeyboard.appex/JevKeyboard"
           ldid -S Broadcast/JevLive.entitlements "$APP/PlugIns/JevLive.appex/JevLive"
