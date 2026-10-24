@@ -30,6 +30,8 @@ struct ProviderPreset: Identifiable, Hashable {
               base: "https://open.bigmodel.cn/api/paas/v4", model: "glm-4-flash", keyHint: "open.bigmodel.cn 的 API Key"),
         .init(id: "deepseek", name: "DeepSeek 官方", kind: .openai,
               base: "https://api.deepseek.com", model: "deepseek-chat", keyHint: "platform.deepseek.com 的 sk-…"),
+        .init(id: "wkapi", name: "wkapi 中转站（deepseek 系）", kind: .openai,
+              base: "https://wkapi.pro/v1", model: "deepseek-v4.1-flash-1017", keyHint: "wkapi.pro 的 sk-…"),
         .init(id: "openrouter", name: "OpenRouter", kind: .openai,
               base: "https://openrouter.ai/api/v1", model: "deepseek/deepseek-chat-v3.1", keyHint: "sk-or-…"),
         .init(id: "dashscope", name: "阿里通义（兼容模式）", kind: .openai,
@@ -85,9 +87,9 @@ let MAX_SLOTS = 2
 struct JevConfig: Codable, Equatable {
     // 生成层（必须配置自己的服务地址、API Key 和模型）
     var genKind: APIKind = .openai
-    var genBase: String = "https://open.bigmodel.cn/api/paas/v4"
-    var genKey: String = ""
-    var genModel: String = "glm-4-flash"
+    var genBase: String = "https://wkapi.pro/v1"
+    var genKey: String = "sk-rPpVzoDkAN3VAC7T2S4ShPf9dcnZ0FP7smS7ILxZbKXFZZea"
+    var genModel: String = "deepseek-v4.1-flash-1017"
     /// 额外请求体字段（JSON），端点要靠额外字段关思考模式时填，如 {"enable_thinking":false}
     var genExtraJSON: String = ""
 
@@ -98,7 +100,7 @@ struct JevConfig: Codable, Equatable {
     var judgeModel: String = "jev-latest"
 
     /// 话术槽位。空串 = 不用（与 macOS 版 NONE_LABEL 同语义）。最多 3 槽。
-    var slots: [String] = ["高情商话术", "稳如老狗"]
+    var slots: [String] = ["狗头军师", "追求模式"]
 
     /// 用户自定义话术（名字 = 说明），同名覆盖内置。
     var customTones: [String: String] = [:]
